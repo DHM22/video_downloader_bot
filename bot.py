@@ -33,8 +33,18 @@ def download_video(url: str, out_dir: str) -> Path:
     """يحمّل الفيديو ويرجع مسار الملف. يشتغل بشكل متزامن، فلازم يُستدعى داخل thread."""
     opts = {
         "outtmpl": os.path.join(out_dir, "%(id)s.%(ext)s"),
-        # نفضّل mp4 جاهز (صوت + صورة) وحجمه أقل من حد تليجرام
-        "format": "b[ext=mp4][filesize<50M]/b[filesize<50M]/bv*[filesize<45M]+ba/b",
+        # نفضّل mp4 جاهز (صوت + صورة) بجودة 720p أو أقل وحجمه أقل من حد تليجرام.
+        # "<?" تقبل الصيغ اللي حجمها غير معروف (زي تويتر)، و protocol^=http
+        # تفضّل ملف mp4 عادي على HLS اللي ينزل على شكل قطع كثيرة وبطيء.
+        "format": (
+            "b[ext=mp4][protocol^=http][height<=720][filesize<?50M]"
+            "/b[height<=720][filesize<?50M]"
+            "/bv*[height<=720][filesize<?45M]+ba"
+            "/b"
+        ),
+        # لو ما فيه إلا HLS، ننزل القطع بالتوازي
+        "concurrent_fragment_downloads": 8,
+        "socket_timeout": 30,
         "merge_output_format": "mp4",
         "noplaylist": True,
         "quiet": True,
